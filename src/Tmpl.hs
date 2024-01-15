@@ -5,12 +5,18 @@ module Tmpl
 where
 
 import Data.List (isPrefixOf)
+import System.FilePath (takeDirectory)
+
+whitespace = " \t\n\r"
+
+trimBefore :: String -> String
+trimBefore = dropWhile (`elem` whitespace)
+
+trimAfter :: String -> String
+trimAfter = reverse . trimBefore . reverse
 
 trim :: String -> String
-trim = 
-  takeWhile (not . (`elem` whitespace)) . dropWhile (`elem` whitespace)
-  where
-    whitespace = " \t\n\r"
+trim = trimAfter . trimBefore
 
 -- read variables from a variable file. The file is expected to be in the format
 -- key=value, one per line. Newlines will be ignored.
@@ -28,7 +34,7 @@ parseVariables filename = do
 variableReplace :: [(String, String)] -> String -> String
 variableReplace vars template = foldl replace template vars
   where
-    replace template (key, value) = replaceAll ("{{ \"" ++ key ++ "\" }}") value template
+    replace template (key, value) = replaceAll ("{{ \"" <> key <> "\" }}") value template
 
 replaceAll :: String -> String -> String -> String
 replaceAll _ _ [] = []
@@ -37,14 +43,18 @@ replaceAll from to str@(x : xs)
   | otherwise = x : replaceAll from to xs
 
 -- parse a template file and recursively replace all template sections with their
--- respective files relative to the current directory
-templateReplace :: String -> [(String, String)] -> IO String
-templateReplace template@(t : ts) vars =
+-- respective files relative to the current template file
+templateReplace :: [(String, String)] -> String -> String -> IO String
+templateReplace _ _ [] = return []
+templateReplace vars cwd template@(t : ts) =
   if "{{ template \"" `isPrefixOf` template
     then do
       let (filename, tmpl) = break (== '"') $ drop 13 template
-      text <- readFile filename
-      replacement <- templateReplace (variableReplace vars text) vars
-      rest <- templateReplace tmpl vars
+          path = cwd <> "/" <> filename
+      text <- readFile path
+      replacement <- templateReplace vars (takeDirectory path) (variableReplace vars text)
+      rest <- templateReplace vars cwd (variableReplace vars $ drop 4 tmpl)
       return $ replacement <> rest
-    else return [t] <> templateReplace ts vars
+    else do
+      rest <- templateReplace vars cwd ts
+      return $ variableReplace vars $ [t] <> rest

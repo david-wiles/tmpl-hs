@@ -3,3 +3,7 @@ key1=value1
 
 
 key2 = value2
+key3 = var with a space
+
+one.one=1
+two.two=2
