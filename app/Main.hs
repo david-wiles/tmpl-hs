@@ -1,5 +1,8 @@
 module Main where
 
+import Control.Monad (mapM)
+import Data.List (foldl)
+import qualified Data.Map as M
 import Options.Applicative
 import Options.Applicative.Help (string)
 import Tmpl (parseVariables, templateReplace)
@@ -19,7 +22,7 @@ explain =
 
 data Arguments = Arguments
   { templateFile :: String,
-    variableFile :: String,
+    variableFiles :: [String],
     outputFile :: String
   }
   deriving (Show)
@@ -32,14 +35,16 @@ opts =
       ( metavar "TEMPLATE"
           <> help "Template file to use"
       )
-    <*> strOption
-      ( long "varfile"
-          <> metavar "VARFILE"
-          <> short 'v'
-          <> help "Variable file to use"
+    <*> many
+      ( strOption
+          ( long
+              "varfiles"
+              <> metavar "VARFILES"
+              <> short 'v'
+              <> help "Variable files"
+          )
       )
-    <*> option
-      auto
+    <*> strOption
       ( long "output"
           <> short 'o'
           <> metavar "OUTPUT"
@@ -47,11 +52,19 @@ opts =
           <> help "Output file to write to. Defaults to stdout"
       )
 
+splitOn :: Char -> String -> [String]
+splitOn _ [] = []
+splitOn ch s = go [] ch s
+  where
+    go acc ch (x : xs) =
+      if x == ch then acc : splitOn ch xs else go (acc <> [x]) ch xs
+
 run :: Arguments -> IO ()
 run (Arguments tf vf o) = do
-  vars <- parseVariables vf
+  parsed <- mapM parseVariables vf
+  let vars = foldl M.union M.empty parsed
   t <- readFile tf
-  text <- templateReplace t vars
+  text <- templateReplace vars "./" t
   writeFile o text
 
 main :: IO ()

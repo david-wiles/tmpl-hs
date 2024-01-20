@@ -1,6 +1,7 @@
 module TmplSpec where
 
-import Test.Hspec
+import qualified Data.Map as M
+import Test.Hspec ( Spec, describe, it, shouldBe, shouldReturn )
 import Tmpl (parseVariables, templateReplace)
 
 parseVariablesSpec :: Spec
@@ -9,7 +10,7 @@ parseVariablesSpec = do
     it "parses a variable file" $ do
       vars <- parseVariables "test/vars.txt"
       vars
-        `shouldBe` [ ("key1", "value1"),
+        `shouldBe` M.fromList [ ("key1", "value1"),
                      ("key2", "value2"),
                      ("key3", "var with a space"),
                      ("one.one", "1"),

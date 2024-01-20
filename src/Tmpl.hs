@@ -4,10 +4,14 @@ module Tmpl
   )
 where
 
+import Data.Map (Map)
+import qualified Data.Map as M
 import Data.List (isPrefixOf)
 import System.FilePath (takeDirectory)
 
-whitespace = " \t\n\r"
+type Vars = Map String String
+
+whitespace = " \t\r"
 
 trimBefore :: String -> String
 trimBefore = dropWhile (`elem` whitespace)
@@ -20,10 +24,10 @@ trim = trimAfter . trimBefore
 
 -- read variables from a variable file. The file is expected to be in the format
 -- key=value, one per line. Newlines will be ignored.
-parseVariables :: String -> IO [(String, String)]
+parseVariables :: String -> IO Vars
 parseVariables filename = do
   contents <- readFile filename
-  return $ map parseLine $ filter (not . null) $ lines contents
+  return $ M.fromList $ map parseLine $ filter (not . null) $ lines contents
   where
     parseLine :: String -> (String, String)
     parseLine line = (trim key, trim (drop 1 value))
@@ -31,20 +35,22 @@ parseVariables filename = do
         (key, value) = break (== '=') line
 
 -- replace all variables in a template file with their values
-variableReplace :: [(String, String)] -> String -> String
-variableReplace vars template = foldl replace template vars
+variableReplace :: Vars -> String -> String
+variableReplace vars template = foldl replace template $ M.toList vars
   where
-    replace template (key, value) = replaceAll ("{{ \"" <> key <> "\" }}") value template
+    replace template (key, value) = 
+      replaceAll (\s -> s "{{ \"" <> key <> "\" }}") value template
 
-replaceAll :: String -> String -> String -> String
+replaceAll :: (String -> Bool) -> String -> String -> String
 replaceAll _ _ [] = []
 replaceAll from to str@(x : xs)
-  | from `isPrefixOf` str = to ++ replaceAll from to (drop (length from) str)
+  | from str = to ++ replaceAll from to (drop (length from) str)
   | otherwise = x : replaceAll from to xs
 
 -- parse a template file and recursively replace all template sections with their
--- respective files relative to the current template file
-templateReplace :: [(String, String)] -> String -> String -> IO String
+-- respective files relative to the current template file. Replace templates, 
+-- then variables
+templateReplace :: Vars -> String -> String -> IO String
 templateReplace _ _ [] = return []
 templateReplace vars cwd template@(t : ts) =
   if "{{ template \"" `isPrefixOf` template
@@ -52,9 +58,9 @@ templateReplace vars cwd template@(t : ts) =
       let (filename, tmpl) = break (== '"') $ drop 13 template
           path = cwd <> "/" <> filename
       text <- readFile path
-      replacement <- templateReplace vars (takeDirectory path) (variableReplace vars text)
-      rest <- templateReplace vars cwd (variableReplace vars $ drop 4 tmpl)
-      return $ replacement <> rest
+      replacement <- templateReplace vars (takeDirectory path) text
+      rest <- templateReplace vars cwd (drop 4 tmpl)
+      return $ variableReplace vars $ replacement <> rest
     else do
       rest <- templateReplace vars cwd ts
       return $ variableReplace vars $ [t] <> rest

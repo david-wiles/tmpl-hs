@@ -21,19 +21,22 @@ maintainer:         me@davidwiles.net
 -- category:
 extra-source-files: CHANGELOG.md
 
-executable main
+executable tmpl
     main-is:          Main.hs
-    build-depends:    tmpl,
-                      base ^>=4.17.2.1,
-                      optparse-applicative
+    build-depends:    libtmpl,
+                      base,
+                      optparse-applicative,
+                      containers
     hs-source-dirs:   app
     default-language: Haskell2010
 
-library
+library libtmpl
     exposed-modules:
       Tmpl
-    build-depends:    base ^>=4.17.2.1,
-                      filepath
+    build-depends:    base,
+                      filepath,
+                      containers,
+                      regex
     hs-source-dirs:   src
     default-language: Haskell2010
 
@@ -41,8 +44,9 @@ executable test
     main-is:          Spec.hs
     other-modules:
       TmplSpec
-    build-depends:    tmpl,
-                      base ^>=4.17.2.1,
-                      hspec
+    build-depends:    libtmpl,
+                      base,
+                      hspec,
+                      containers
     hs-source-dirs:   test
     default-language: Haskell2010
