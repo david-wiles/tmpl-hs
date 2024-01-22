@@ -6,4 +6,5 @@ import Test.Hspec (hspec)
 main :: IO ()
 main = do
   hspec TmplSpec.parseVariablesSpec
-  hspec TmplSpec.templateReplaceSpec
+  hspec TmplSpec.replaceTemplateSpec
+  hspec TmplSpec.replaceVariablesSpec

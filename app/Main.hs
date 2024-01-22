@@ -5,7 +5,7 @@ import Data.List (foldl)
 import qualified Data.Map as M
 import Options.Applicative
 import Options.Applicative.Help (string)
-import Tmpl (parseVariables, templateReplace)
+import Tmpl (parseVariables, replaceTemplates, replaceVariables)
 
 explain =
   "This template engine resembles the Go template engine. To replace\n\
@@ -61,11 +61,11 @@ splitOn ch s = go [] ch s
 
 run :: Arguments -> IO ()
 run (Arguments tf vf o) = do
-  parsed <- mapM parseVariables vf
-  let vars = foldl M.union M.empty parsed
   t <- readFile tf
-  text <- templateReplace vars "./" t
-  writeFile o text
+  varText <- mapM readFile vf
+  let vars = foldl M.union M.empty $ map parseVariables varText
+  output <- replaceVariables vars <$> replaceTemplates tf
+  writeFile o output
 
 main :: IO ()
 main = run =<< execParser parserOpts
